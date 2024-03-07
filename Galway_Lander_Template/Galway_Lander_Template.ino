@@ -155,7 +155,6 @@ void readFromAccelerometer(){
   accel_z = new_z;
 }
 
-//What is this doing? Wrap back around here
 int average_array(int arrayToSum[], int sizeOfArray){
   int sum, average = 0;
   for ( int i = 0; i < sizeOfArray; i++ ){
