@@ -20,10 +20,11 @@
 #define SEALEVELPRESSURE_HPA (1013.25) // Pressure at sea level in hPa
 #define ROCKET_MASS (0.2) // Mass of rocket/capsule in kilograms
 
-// N.B. Replace with your calibration results
-// For use when converting raw accelerometer values to m/s^@
-#define ONE_G_DIFF (70) // ADC value difference between 0g and 1g
-#define ZERO_G_POINT (347) // ADC value for 0g
+
+// For use when converting raw accelerometer values to m/s^2
+#define ONE_G_DIFF (140) // ADC value difference between 0g and 1g
+#define ZERO_G_POINT (442) // ADC value for 0g
+#define g (9.81) // Value for gravity
 
 // Moving Average Filter / Buffer / Track values
 #define WINDOW_SIZE 5
@@ -36,6 +37,9 @@
 float accel_x, accel_y, accel_z;
 
 void setup() {
+  // Code has started, start timestamp.
+  time_start = millis();
+  
   // Setup serial connections to the HC-12/ PC
   // Start serial streams between Arduino and HC-12/ PC
   //HC12.begin(9600);
@@ -57,16 +61,18 @@ void readFromAccelerometer(){
   // Convert from raw accelerometer values to m/s^2 using pre-calibrated values
   // HINT: Look at the slides, use the map() function
 
-  float new_x;
-  float new_y;
-  float new_z;
+
+
+  float new_x=map(raw_x,302,442,-g,g);
+  float new_y=map(raw_x,302,442,-g,g);
+  float new_z=map(raw_z,302,442,-g,g);
 
   
   
   // Store value into global variables: accel_x, accel_y, accel_z.
-  accel_x = raw_x;
-  accel_y = raw_y;
-  accel_z = raw_z;
+  accel_x = new_x;
+  accel_y = new_y;
+  accel_z = new_z;
 
 }
 
@@ -102,6 +108,8 @@ void loop() {
   readFromAccelerometer();
   smoothAccelReading();
 
-  Serial.println(accel_z);
+  //Serial.println(accel_x);
+  Serial.println(accel_y);
+  //Serial.println(accel_z);
 
 }
