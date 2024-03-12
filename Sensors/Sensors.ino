@@ -275,6 +275,5 @@ void loop() {
   Serial.println(raw_debug);
   */
 
-  delay(100);
-  
+  delay(100); 
 }
