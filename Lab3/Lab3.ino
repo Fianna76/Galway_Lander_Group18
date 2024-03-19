@@ -41,6 +41,13 @@ SoftwareSerial HC12(7, 6); // HC-12 TX Pin, HC-12 RX Pin
 // Moving Average Filter / Buffer / Track values
 #define WINDOW_SIZE 5
 
+// Constants for use in code
+#define ROCKET_MASS (0.2) // Mass of rocket/capsule in kilograms
+//International Standard Atmosphere (ISA) values for calculating atmosphere
+const float R = 8.31432; // Universal gas constant in J/(mol·K)
+const float T0 = 288.15; // Standard temperature at sea level in Kelvin
+const float P0 = 101325; // Standard pressure at sea level in Pascals
+
 //===========================================================================
 // Initialising variables and peripherals
 //===========================================================================
@@ -258,16 +265,6 @@ void smoothEnvSensorReading(){
   PRESSURE_AVERAGED=SUM[4] / WINDOW_SIZE;
 }
 
-void transmit(String data_to_send){
-  // Send data to PC for debugging
-  Serial.println(data_to_send);
-  
-  // Send to HC-12 for wireless transmission
-  HC12.println(data_to_send);
-
-  delay(1);
-}
-
 //TODO: MAKE THIS WORK PROPERLY
 float calcVelocity(char direction_char, float acceleration, unsigned long diff_time){
   float velocity = 0; 
@@ -304,6 +301,30 @@ float calcVelocity(char direction_char, float acceleration, unsigned long diff_t
   return velocity;
 }
 
+float calcAltitude(float temperature, float pressure){
+  //N.B Constants declared at top of file - 
+  float altitude = (R * T0 / g) * log(P0 / pressure);
+  return altitude;
+}
+
+float calcForce(float acceleration){
+  //F = m*a
+  float force = ROCKET_MASS*acceleration;
+
+  //Returns force in Newtons
+  return force;
+}
+
+void transmit(String data_to_send){
+  // Send data to PC for debugging
+  Serial.println(data_to_send);
+  
+  // Send to HC-12 for wireless transmission
+  HC12.println(data_to_send);
+
+  delay(1);
+}
+
 void loop() {
   // 1. READ FROM SENSORS.
 
@@ -321,10 +342,18 @@ void loop() {
   time_diff = millis() - time_prev;
   time_prev = millis() - time_start;
   
+  // Calculate Altitude
+  float curr_alt = calcAltitude(temperature, pressure);
+
   // Calculate velocity for each axis using calcVelocity.
   vel_x = calcVelocity('x', X_AVERAGED, time_diff);
   vel_y = calcVelocity('y', Y_AVERAGED, time_diff);
   vel_z = calcVelocity('z', Z_AVERAGED, time_diff);
+
+  // Calculate Force
+  force_x = calcForce(X_AVERAGED);
+  force_y = calcForce(Y_AVERAGED);
+  force_z = calcForce(Z_AVERAGED;
 
   INDEX = (INDEX+1) % WINDOW_SIZE;   // Increment the index, and wrap to 0 if it exceeds the window size
 
