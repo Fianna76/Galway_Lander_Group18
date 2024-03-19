@@ -56,6 +56,9 @@ float accel_x, accel_y, accel_z;
 // Variable to hold the environmental sensor readings (degrees C & hPa)
 float temperature, pressure;
 
+// time variables
+unsigned long time_start, time_prev, time_diff, pre_launch_last_transmit_time, landed_last_transmit_time = 0;
+
 // Moving average filter variables
 int INDEX = 0;
 int VALUE[5] = {0};
@@ -71,9 +74,20 @@ int Z_AVERAGED = 0;
 int TEMP_AVERAGED = 0;
 int PRESSURE_AVERAGED = 0;
 
+// calcuated variables
+float prev_velocity_x, prev_velocity_y, prev_velocity_z = 0;
+float vel_x, vel_y, vel_z = 0;
+float force_x, force_y, force_z= 0;
+
+// min/max variables
+float min_temp, max_temp, min_pressure, max_pressure, min_alt, max_alt = 0;
+float min_vel_x, max_vel_x, min_vel_y, max_vel_y, min_vel_z, max_vel_z = 0;
+float min_accel_x, max_accel_x, min_accel_y, max_accel_y, min_accel_z, max_accel_z = 0;
+float min_force_x, max_force_x, min_force_y, max_force_y, min_force_z, max_force_z = 0;
+
 void setup() {
   // Code has started, start timestamp.
-  //time_start = millis();
+  time_start = millis();
   
   // Setup serial connections to the HC-12/ PC
   // Start serial streams between Arduino and HC-12/ PC
@@ -122,6 +136,7 @@ void readFromAccelerometer(){
 
 }
 
+//TODO: Actually use or lose this
 int average_array(int arrayToSum[], int sizeOfArray){
   int sum, average = 0;
   for ( int i = 0; i < sizeOfArray; i++ ){
@@ -192,15 +207,6 @@ void smoothAccelReading(){
   
 }
 
-float calcVelocity(char direction_char, float acceleration, unsigned long diff_time){
-  // TODO: Add parameters and functionality
-
-  float velocity = 0; 
-  float prev_velocity;
-
-  // HINT: Use Newton's SUVAT equations
-  return velocity;
-}
 
 void readEnvironmental(){
   // Read Environmental Sensor
@@ -262,6 +268,41 @@ void transmit(String data_to_send){
   delay(1);
 }
 
+float calcVelocity(char direction_char, float acceleration, unsigned long diff_time){
+  float velocity = 0; 
+  float prev_x, prev_y, prev_z=0;
+  int intcheck=0;
+  bool check=false; 
+
+  //Convert diff_time to seconds 
+  float current_time = static_cast<float>(diff_time) / 1000;
+  //This static cast is neccesary, as I was getting persistent issues with the conversion without it
+  
+  //v = u + at
+  switch(direction_char) {
+    case 'x':
+    velocity = prev_x + acceleration*current_time;
+    prev_x=velocity-prev_x;
+    break; 
+
+    case 'y':
+    velocity = prev_y + acceleration*current_time;
+    prev_y=velocity-prev_y;
+    break;
+
+    case 'z':
+    velocity = prev_z + acceleration*current_time;
+    prev_z=velocity;
+    break; 
+
+    default:
+    Serial.println("ERROR: Invalid direction char passed to calcVelocity");
+    break;
+  }
+
+  return velocity;
+}
+
 void loop() {
   // 1. READ FROM SENSORS.
 
@@ -272,20 +313,33 @@ void loop() {
   // Read Environmental Sensor and then Smooth
   readEnvironmental();
   smoothEnvSensorReading();
+    
+  // 2. RUN CALCULATIONS ON SENSOR DATA
+
+  // Calculate time variables
+  time_diff = millis() - time_prev;
+  time_prev = millis() - time_start;
+  
+  // Calculate velocity for each axis using calcVelocity.
+  vel_x = calcVelocity('x', X_AVERAGED, time_diff);
+  vel_y = calcVelocity('y', Y_AVERAGED, time_diff);
+  vel_z = calcVelocity('z', Z_AVERAGED, time_diff);
 
   INDEX = (INDEX+1) % WINDOW_SIZE;   // Increment the index, and wrap to 0 if it exceeds the window size
 
   // GENERATE TRANSMISSION STRING
   String data_to_send = "";
-  data_to_send = data_to_send + X_AVERAGED + "," + Y_AVERAGED + "," + Z_AVERAGED + "," + TEMP_AVERAGED + "," + PRESSURE_AVERAGED;
+  data_to_send = data_to_send + vel_x + "," + vel_y + "," + vel_z;
   
-  transmit(data_to_send);
+  //transmit(data_to_send);
   
-  /* Debug Check
+  // Debug Check
   String raw_debug = "";
-  raw_debug = String(accel_x) + "," + String(accel_y) + "," + String(accel_z) + "," + String(temperature) + "," + String(pressure);
-  Serial.println(raw_debug);
-  */
+  raw_debug = raw_debug + vel_z + "," + Z_AVERAGED;
+  transmit(raw_debug);
+  //
+
+
 
   delay(100);
   
