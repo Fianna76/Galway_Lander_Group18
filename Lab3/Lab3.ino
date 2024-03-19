@@ -268,7 +268,7 @@ void smoothEnvSensorReading(){
 //TODO: MAKE THIS WORK PROPERLY
 float calcVelocity(char direction_char, float acceleration, unsigned long diff_time){
   float velocity = 0; 
-  float prev_x, prev_y, prev_z=0;
+  float prev_x, prev_y, prev_z=0; //TODO: Write a new switch statment to set prev values to first value when initializing 
   int intcheck=0;
   bool check=false; 
 
@@ -315,6 +315,278 @@ float calcForce(float acceleration){
   return force;
 }
 
+//===========================================================================
+// TRACK CALCULATED READINGS 
+//===========================================================================
+
+void trackAltitude(int time_now, float alt_curr){
+  int min_alt_time, max_alt_time = 0; 
+  bool initial_alt = false;
+  
+  //Initialiaze the max/min with first read value
+  if(initial_alt==false) {
+    min_alt, max_alt = alt_curr;
+    initial_alt=true;
+  }
+
+  //Check if current value is new maximum
+  if(alt_curr>max_alt) {
+    max_alt_time = time_now;
+    max_alt = alt_curr;
+  }
+
+  //Check if current value is new minimum 
+  if(alt_curr<min_alt) {
+    min_alt_time = time_now;
+    min_alt = alt_curr;
+  }
+}
+
+void trackAccelX(int time_now){
+// record min, max, avg, acceleration for X
+  int min_accel_x_time, max_accel_x_time, avg_accel_x = 0; 
+  bool initial_accel_x = false;
+  
+  //Initialiaze the max/min with first read value
+  if(initial_accel_x==false) {
+    min_accel_x, max_accel_x = accel_x;
+    initial_accel_x=true;
+  }
+
+  //Check if current value is new maximum
+  if(accel_x>max_accel_x) {
+    max_accel_x_time = time_now;
+    max_accel_x = accel_x;
+  }
+
+  //Check if current value is new minimum 
+  if(accel_x<min_accel_x) {
+    min_accel_x_time = time_now;
+    min_accel_x = accel_x;
+  }
+
+  //Get simple average 
+  avg_accel_x = (max_accel_x+min_accel_x)/2;
+}
+
+void trackAccelY(int time_now){
+// record min, max, avg, acceleration for Y
+int min_accel_y_time, max_accel_y_time, avg_accel_y = 0; 
+  bool initial_accel_y = false;
+  
+  //Initialiaze the max/min with first read value
+  if(initial_accel_y==false) {
+    min_accel_y, max_accel_y = accel_y;
+    initial_accel_y=true;
+  }
+
+  //Check if current value is new maximum
+  if(accel_y>max_accel_y) {
+    max_accel_y_time = time_now;
+    max_accel_y = accel_y;
+  }
+
+  //Check if current value is new minimum 
+  if(accel_y<min_accel_y) {
+    min_accel_y_time = time_now;
+    min_accel_y = accel_y;
+  }
+
+  //Get simple average 
+  avg_accel_y = (max_accel_y+min_accel_y)/2;
+}
+
+void trackAccelZ(int time_now){
+// record min, max, avg, acceleration for Z
+int min_accel_z_time, max_accel_z_time, avg_accel_z = 0; 
+  bool initial_accel_z = false;
+  
+  //Initialiaze the max/min with first read value
+  if(initial_accel_z==false) {
+    min_accel_z, max_accel_z = accel_z;
+    initial_accel_z=true;
+  }
+
+  //Check if current value is new maximum
+  if(accel_z>max_accel_z) {
+    max_accel_z_time = time_now;
+    max_accel_z = accel_z;
+  }
+
+  //Check if current value is new minimum 
+  if(accel_z<min_accel_z) {
+    min_accel_z_time = time_now;
+    min_accel_z = accel_z;
+  }
+
+  //Get simple average 
+  avg_accel_z = (max_accel_z+min_accel_z)/2;
+}
+
+void trackVelX(int time_now){
+// record min, max, avg, velocity for X
+  int min_vel_x_time, max_vel_x_time, avg_vel_x = 0; 
+  bool initial_vel_x = false;
+  
+  //Initialiaze the max/min with first read value
+  if(initial_vel_x==false) {
+    min_vel_x, max_vel_x = vel_x;
+    initial_vel_x=true;
+  }
+
+  //Check if current value is new maximum
+  if(vel_x>max_vel_x) {
+    max_vel_x_time = time_now;
+    max_vel_x = vel_x;
+  }
+
+  //Check if current value is new minimum 
+  if(vel_x<min_vel_x) {
+    min_vel_x_time = time_now;
+    min_vel_x = vel_x;
+  }
+
+  //Get simple average 
+  avg_vel_x = (max_vel_x+min_vel_x)/2;
+}
+
+void trackVelY(int time_now){
+// record min, max, avg, velocity for Y
+int min_vel_y_time, max_vel_y_time, avg_vel_y = 0; 
+  bool initial_vel_y = false;
+  
+  //Initialiaze the max/min with first read value
+  if(initial_vel_y==false) {
+    min_vel_y, max_vel_y = vel_y;
+    initial_vel_y=true;
+  }
+
+  //Check if current value is new maximum
+  if(vel_y>max_vel_y) {
+    max_vel_y_time = time_now;
+    max_vel_y = vel_y;
+  }
+
+  //Check if current value is new minimum 
+  if(vel_y<min_vel_y) {
+    min_vel_y_time = time_now;
+    min_vel_y = vel_y;
+  }
+
+  //Get simple average 
+  avg_vel_y = (max_vel_y+min_vel_y)/2;
+}
+
+void trackVelZ(int time_now){
+// record min, max, avg, velocity for Z
+int min_vel_z_time, max_vel_z_time, avg_vel_z = 0; 
+  bool initial_vel_z = false;
+  
+  //Initialiaze the max/min with first read value
+  if(initial_vel_z==false) {
+    min_vel_z, max_vel_z = vel_z;
+    initial_vel_z=true;
+  }
+
+  //Check if current value is new maximum
+  if(vel_z>max_vel_z) {
+    max_vel_z_time = time_now;
+    max_vel_z = vel_z;
+  }
+
+  //Check if current value is new minimum 
+  if(vel_z<min_vel_z) {
+    min_vel_z_time = time_now;
+    min_vel_z = vel_z;
+  }
+
+  //Get simple average 
+  avg_vel_z = (max_vel_z+min_vel_z)/2;
+}
+
+void trackForceX(int time_now){
+// record min, max, avg, force for X
+  int min_force_x_time, max_force_x_time, avg_force_x = 0; 
+  bool initial_force_x = false;
+  
+  //Initialiaze the max/min with first read value
+  if(initial_force_x==false) {
+    min_force_x, max_force_x = force_x;
+    initial_force_x=true;
+  }
+
+  //Check if current value is new maximum
+  if(force_x>max_force_x) {
+    max_force_x_time = time_now;
+    max_force_x = force_x;
+  }
+
+  //Check if current value is new minimum 
+  if(force_x<min_force_x) {
+    min_force_x_time = time_now;
+    min_force_x = force_x;
+  }
+
+  //Get simple average 
+  avg_force_x = (max_force_x+min_force_x)/2;
+}
+
+void trackForceY(int time_now){
+// record min, max, avg, force for Y
+int min_force_y_time, max_force_y_time, avg_force_y = 0; 
+  bool initial_force_y = false;
+  
+  //Initialiaze the max/min with first read value
+  if(initial_force_y==false) {
+    min_force_y, max_force_y = force_y;
+    initial_force_y=true;
+  }
+
+  //Check if current value is new maximum
+  if(force_y>max_force_y) {
+    max_force_y_time = time_now;
+    max_force_y = force_y;
+  }
+
+  //Check if current value is new minimum 
+  if(force_y<min_force_y) {
+    min_force_y_time = time_now;
+    min_force_y = force_y;
+  }
+
+  //Get simple average 
+  avg_force_y = (max_force_y+min_force_y)/2;
+}
+
+void trackForceZ(int time_now){
+// record min, max, avg, force for Z
+int min_force_z_time, max_force_z_time, avg_force_z = 0; 
+  bool initial_force_z = false;
+  
+  //Initialiaze the max/min with first read value
+  if(initial_force_z==false) {
+    min_force_z, max_force_z = force_z;
+    initial_force_z=true;
+  }
+
+  //Check if current value is new maximum
+  if(force_z>max_force_z) {
+    max_force_z_time = time_now;
+    max_force_z = force_z;
+  }
+
+  //Check if current value is new minimum 
+  if(force_z<min_force_z) {
+    min_force_z_time = time_now;
+    min_force_z = force_z;
+  }
+
+  //Get simple average 
+  avg_force_z = (max_force_z+min_force_z)/2;
+}
+
+//===========================================================================
+
 void transmit(String data_to_send){
   // Send data to PC for debugging
   Serial.println(data_to_send);
@@ -335,7 +607,9 @@ void loop() {
   // Read Environmental Sensor and then Smooth
   readEnvironmental();
   smoothEnvSensorReading();
-    
+
+  INDEX = (INDEX+1) % WINDOW_SIZE;   // Increment the index, and wrap to 0 if it exceeds the window size
+
   // 2. RUN CALCULATIONS ON SENSOR DATA
 
   // Calculate time variables
@@ -350,27 +624,51 @@ void loop() {
   vel_y = calcVelocity('y', Y_AVERAGED, time_diff);
   vel_z = calcVelocity('z', Z_AVERAGED, time_diff);
 
-  // Calculate Force
+  // Calculate Force (in Newtons)
   force_x = calcForce(X_AVERAGED);
   force_y = calcForce(Y_AVERAGED);
-  force_z = calcForce(Z_AVERAGED;
+  force_z = calcForce(Z_AVERAGED);
 
-  INDEX = (INDEX+1) % WINDOW_SIZE;   // Increment the index, and wrap to 0 if it exceeds the window size
+  // TRACK MIN, MAX, AVG VALUES for Altitude, Acceleration, Force, and Velocity. 
+  trackAltitude(time_prev, curr_alt); 
+  
+  trackAccelX(time_prev);
+  trackAccelY(time_prev);
+  trackAccelZ(time_prev);
+
+  trackVelX(time_prev);
+  trackVelY(time_prev);
+  trackVelZ(time_prev);
+
+  trackForceX(time_prev);
+  trackForceY(time_prev);
+  trackForceZ(time_prev);
 
   // GENERATE TRANSMISSION STRING
   String data_to_send = "";
-  data_to_send = data_to_send + vel_x + "," + vel_y + "," + vel_z;
   
-  //transmit(data_to_send);
+  //Switch statement for different modes goes HERE
   
-  // Debug Check
+  /* Debug Check
   String raw_debug = "";
-  raw_debug = raw_debug + vel_z + "," + Z_AVERAGED;
+  raw_debug = raw_debug + time_prev;
   transmit(raw_debug);
-  //
+  */
 
+  if(time_prev>10000000) {
+        data_to_send = data_to_send + "Summary of results" + "\n";
+        data_to_send = data_to_send + "Maximum altitude: " + max_alt + "\n";
+        //TODO: Determine orientation for "up"
+        data_to_send = data_to_send + "Maximum upward acceleration: " + max_accel_y + "\n";
+        data_to_send = data_to_send + "Maximum downward: " + min_accel_y + "\n";
 
-
-  delay(100);
+        //TODO: Add proper summary
+  }
+  else
+  {
+     data_to_send = data_to_send + X_AVERAGED + "," + Y_AVERAGED + "," + Z_AVERAGED + "," + temperature + "," + pressure + "," + curr_alt;
+    //data_to_send = data_to_send + vel_x + "," + vel_y + "," + vel_z;
+  }
   
+  transmit(data_to_send);
 }
