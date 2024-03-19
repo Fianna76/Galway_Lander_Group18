@@ -268,6 +268,7 @@ void transmit(String data_to_send){
   delay(1);
 }
 
+//TODO: MAKE THIS WORK PROPERLY
 float calcVelocity(char direction_char, float acceleration, unsigned long diff_time){
   float velocity = 0; 
   float prev_x, prev_y, prev_z=0;
