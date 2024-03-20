@@ -303,7 +303,8 @@ float calcVelocity(char direction_char, float acceleration, unsigned long diff_t
 
 float calcAltitude(float temperature, float pressure){
   //N.B Constants declared at top of file - 
-  float altitude = (R * T0 / g) * log(P0 / pressure);
+  int virt_temp=temperature+273;
+  float altitude = ((R * virt_temp) / g) * log(P0 / pressure);
   return altitude;
 }
 
@@ -655,7 +656,7 @@ void loop() {
   transmit(raw_debug);
   */
 
-  if(time_prev>10000000) {
+  if(time_prev!=time_prev) {
         data_to_send = data_to_send + "Summary of results" + "\n";
         data_to_send = data_to_send + "Maximum altitude: " + max_alt + "\n";
         //TODO: Determine orientation for "up"
@@ -666,9 +667,10 @@ void loop() {
   }
   else
   {
-     data_to_send = data_to_send + X_AVERAGED + "," + Y_AVERAGED + "," + Z_AVERAGED + "," + temperature + "," + pressure + "," + curr_alt;
+     data_to_send = data_to_send + X_AVERAGED + "," + Y_AVERAGED + "," + Z_AVERAGED + "," + TEMP_AVERAGED + "," + PRESSURE_AVERAGED + "," + curr_alt;
     //data_to_send = data_to_send + vel_x + "," + vel_y + "," + vel_z;
   }
   
   transmit(data_to_send);
+  delay(100);
 }
