@@ -33,6 +33,12 @@ SoftwareSerial HC12(7, 6); // HC-12 TX Pin, HC-12 RX Pin
 #define I2CADDR (0x76)
 #define CHIPID (0x60) //0x60 for BME and 0x58 for BMP.
 
+// Mode Codes
+#define PRE_LAUNCH (100)
+#define ASCENDING (200)
+#define DESCENDING (300)
+#define LANDED (400)
+
 // For use when converting raw accelerometer values to m/s^2
 #define ONE_G_DIFF (140) // ADC value difference between 0g and 1g
 #define ZERO_G_POINT (442) // ADC value for 0g
@@ -65,6 +71,9 @@ float temperature, pressure;
 
 // time variables
 unsigned long time_start, time_prev, time_diff, pre_launch_last_transmit_time, landed_last_transmit_time = 0;
+
+//mode variables
+int prev_mode, mode = 0;
 
 // Moving average filter variables
 int INDEX = 0;
@@ -313,6 +322,28 @@ float calcForce(float acceleration){
 
   //Returns force in Newtons
   return force;
+}
+
+int detectMode(int prev_mode)
+{
+  int mode_code 
+  if prev_mode = 0;
+    mode = PRE_LAUNCH;
+    prev_mode = PRE_LAUNCH;
+
+  if prev_mode = PRE_LAUNCH && alt_curr > 10
+    mode = ASCENDING;
+    prev_mode = ASCENDING;
+
+  if prev_mode = ASCENDING && alt_curr < max_alt
+    mode = DESCENDING;
+    prev_mode = DESCENDING;
+
+  if prev_mode = DESCENDING && alt_curr = min_alt
+    mode = LANDED
+    prev_mode = LANDED
+  return mode_code;
+  
 }
 
 //===========================================================================
@@ -585,6 +616,8 @@ int min_force_z_time, max_force_z_time, avg_force_z = 0;
   avg_force_z = (max_force_z+min_force_z)/2;
 }
 
+  
+
 //===========================================================================
 
 void transmit(String data_to_send){
@@ -629,6 +662,9 @@ void loop() {
   force_y = calcForce(Y_AVERAGED);
   force_z = calcForce(Z_AVERAGED);
 
+  // Detect Mode i.e. launch, ascending, descending, landed etc.
+  int mode_code = detectMode(prev_mode);
+
   // TRACK MIN, MAX, AVG VALUES for Altitude, Acceleration, Force, and Velocity. 
   trackAltitude(time_prev, curr_alt); 
   
@@ -644,11 +680,69 @@ void loop() {
   trackForceY(time_prev);
   trackForceZ(time_prev);
 
+
+
   // GENERATE TRANSMISSION STRING
   String data_to_send = "";
   
   //Switch statement for different modes goes HERE
-  
+   switch(mode_code){
+    case PRE_LAUNCH:
+      // Only transmit once every 5s, use some kind of timer.
+      if ((time_now - pre_launch_last_transmit_time) > 5){
+        data_to_send = data_to_send + "," + alt_curr + "," + accel_y;
+        data_to_send = data_to_send + "5 seconds since last PRE_LAUNCH transmit - transmit since start: " + time_now;
+        Serial.println(data_to_send);
+        // FORMAT: TIMESTAMP, MODE, VELOCITY (X,Y,Z), PRESSURE, ALTITUDE, TEMPERATURE
+        //data_to_send = data_to_send + timestamp + "," + status + "," + x_vel + "," + y_vel + "," + z_vel + "," + pressure + "," + altitude + "," + temperature + "\n"; 
+
+        // Transmit data
+        transmit(data_to_send);
+
+        // Record PRE_LAUNCH transmission time
+        pre_launch_last_transmit_time = time_now;
+      }
+      else{
+        Serial.println(F("5 seconds have not passed since previous PRE_LAUNCH transmit. Wait."));
+      }
+      break;
+      
+    case ASCENDING:
+      // Transmit as fast as possible
+      // Package data into a string
+        data_to_send = data_to_send + "," + alt_curr + "," + accel_x + "," + accel_y + "," + accel_z + "," temperature + "," + pressure;
+        Serial.println(data_to_send);
+      // FORMAT: ALTITUDE, ACCEL (X,Y,Z), TEMPERATURE, PRESSURE
+      
+      // Transmit data
+      transmit(data_to_send);
+      break;
+      
+    case DESCENDING:
+      // Transmit as fast as possible
+      // Package data into a string
+        data_to_send = data_to_send + "," + alt_curr + "," + accel_x + "," + accel_y + "," + accel_z + "," temperature + "," + pressure;
+        Serial.println(data_to_send);
+      // FORMAT: ALTITUDE, ACCEL (X,Y,Z), TEMPERATURE, PRESSURE
+      // Transmit data
+      transmit(data_to_send);
+      break;
+
+    case LANDED:
+      if ((time_now - landed_last_transmit_time) > 10000) {
+        // Provide summary e.g. of maximum values
+        data_to_send = data_to_send + "Summary of results" + "\n";
+        data_to_send = data_to_send + "Maximum altitude: " + max_alt + "\n";
+        data_to_send = data_to_send + "Maximum upward acceleration: " + max_accel_y + "\n";
+        data_to_send = data_to_send + "Maximum downward: " + min_accel_y + "\n";
+        data_to_send = data_to_send + "Time at landing: " + time_now + "\n";
+        HC12.println(data_to_send);
+      }
+      break;
+
+    default:
+      break;
+  }
   /* Debug Check
   String raw_debug = "";
   raw_debug = raw_debug + time_prev;
@@ -666,7 +760,7 @@ void loop() {
   }
   else
   {
-     data_to_send = data_to_send + X_AVERAGED + "," + Y_AVERAGED + "," + Z_AVERAGED + "," + temperature + "," + pressure + "," + curr_alt;
+     data_to_send = data_to_send + X_AVERAGED + "," + Y_AVERAGED + "," + Z_AVERAGED + "," + temperature + "," + pressure + "," + alt_curr;
     //data_to_send = data_to_send + vel_x + "," + vel_y + "," + vel_z;
   }
   
