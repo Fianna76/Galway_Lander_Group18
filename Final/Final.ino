@@ -49,9 +49,14 @@ SoftwareSerial HC12(7, 6); // HC-12 TX Pin, HC-12 RX Pin
 
 // Constants for use in code
 #define ROCKET_MASS (0.2) // Mass of rocket/capsule in kilograms
+#define GROUND_LEVEL (50) //Ground level as detected by sensors
+//N.B SET ABOVE CONSTANTS TO CORRECT VALUES BEFORE LAUNCH
+
 const float R = 287; // Universal gas constant in J/(kg·K))
 const float T0 = 288.15; // Standard temperature at sea level in Kelvin
 const float P0 = 989; // Standard pressure at campus ground level in Hectopascals
+
+
 
 //===========================================================================
 // Initialising variables and peripherals
@@ -76,6 +81,7 @@ unsigned long time_start, time_prev, time_diff, pre_launch_last_transmit_time, l
 
 //mode variables
 int prev_mode, mode = 0;
+unsigned long mode_time[4] = {0}; //0 - Pre-Launch, 1 - Ascending, 2 - Descending, 3 - Landing
 
 // Moving average filter variables
 int INDEX = 0;
@@ -98,10 +104,10 @@ float vel_x, vel_y, vel_z = 0;
 float force_x, force_y, force_z= 0;
 
 // min/max variables
-float min_temp, max_temp, min_pressure, max_pressure, min_alt, max_alt = 0;
-float min_vel_x, max_vel_x, min_vel_y, max_vel_y, min_vel_z, max_vel_z = 0;
-float min_accel_x, max_accel_x, min_accel_y, max_accel_y, min_accel_z, max_accel_z = 0;
-float min_force_x, max_force_x, min_force_y, max_force_y, min_force_z, max_force_z = 0;
+float min_temp, max_temp, avg_temp, min_pressure, max_pressure, avg_pressure, min_alt, max_alt, avg_alt = 0;
+float min_vel_x, max_vel_x, min_vel_y, max_vel_y, min_vel_z, max_vel_z, avg_vel_x, avg_vel_y, avg_vel_z = 0;
+float min_accel_x, max_accel_x, avg_accel_x, min_accel_y, avg_accel_y, max_accel_y, min_accel_z, max_accel_z, avg_accel_z = 0;
+float min_force_x, max_force_x, avg_force_x, min_force_y, max_force_y, avg_force_y, min_force_z, max_force_z, avg_force_z= 0;
 
 void setup() {
   // Code has started, start timestamp.
@@ -329,32 +335,92 @@ float calcForce(float acceleration){
 
 int detectMode(int prev_mode){
   int mode_code; 
+  //Note - mode changes shouldn't really be a big thing for the live transmission within the final test - but we do have to track the times of each mode change
+
   if (prev_mode == 0) {
     mode = PRE_LAUNCH;
     prev_mode = PRE_LAUNCH;
+
+    mode_time[0]=time_prev;
   }
 
-  else if(prev_mode == PRE_LAUNCH && curr_alt > 10) {
+  //TODO: Set this to something feasible based off altitude at ground
+  else if(prev_mode == PRE_LAUNCH && curr_alt > GROUND_LEVEL) {
     mode = ASCENDING;
     prev_mode = ASCENDING;
+
+    mode_time[1]=time_prev;
   }
 
   else if (prev_mode == ASCENDING && curr_alt < max_alt) {
     mode = DESCENDING;
     prev_mode = DESCENDING;
+
+    mode_time[2]=time_prev;
   }
 
   else if (prev_mode == DESCENDING && curr_alt == min_alt) {
     mode = LANDED;
     prev_mode = LANDED;
+
+    mode_time[3]=time_prev;
   }
-  return mode_code;
-  
+  return mode_code; 
 }
 
 //===========================================================================
 // TRACK CALCULATED READINGS 
 //===========================================================================
+
+void trackTemperature(int time_now){
+  int min_temp_time, max_temp_time = 0; 
+  bool initial_temp = false;
+  
+  //Initialiaze the max/min with first read value
+  if(initial_temp==false) {
+    min_temp, max_temp = TEMP_AVERAGED;
+    initial_temp=true;
+  }
+
+  //Check if current value is new maximum
+  if(TEMP_AVERAGED>max_temp) {
+    max_temp_time = time_now;
+    max_temp = TEMP_AVERAGED;
+  }
+
+  //Check if current value is new minimum 
+  if(TEMP_AVERAGED<min_temp) {
+    min_temp_time = time_now;
+    min_temp = TEMP_AVERAGED;
+  }
+
+  avg_temp = (max_temp+min_temp)/2;
+}
+
+void trackPressure(int time_now){
+  int min_pressure_time, max_pressure_time = 0; 
+  bool initial_pressure = false;
+  
+  //Initialiaze the max/min with first read value
+  if(initial_pressure==false) {
+    min_pressure, max_pressure = PRESSURE_AVERAGED;
+    initial_pressure=true;
+  }
+
+  //Check if current value is new maximum
+  if(PRESSURE_AVERAGED>max_pressure) {
+    max_pressure_time = time_now;
+    max_pressure = PRESSURE_AVERAGED;
+  }
+
+  //Check if current value is new minimum 
+  if(PRESSURE_AVERAGED<min_pressure) {
+    min_pressure_time = time_now;
+    min_pressure = PRESSURE_AVERAGED;
+  }
+
+  avg_pressure = (max_pressure+min_pressure)/2;
+}
 
 void trackAltitude(int time_now, float alt_curr){
   int min_alt_time, max_alt_time = 0; 
@@ -377,6 +443,8 @@ void trackAltitude(int time_now, float alt_curr){
     min_alt_time = time_now;
     min_alt = alt_curr;
   }
+
+  avg_alt = (max_alt+min_alt)/2;
 }
 
 void trackAccelX(int time_now){
@@ -669,7 +737,9 @@ void loop() {
   // Detect Mode i.e. launch, ascending, descending, landed etc.
   int mode_code = detectMode(prev_mode);
 
-  // TRACK MIN, MAX, AVG VALUES for Altitude, Acceleration, Force, and Velocity. 
+  // TRACK MIN, MAX, AVG VALUES
+  trackPressure(time_prev);
+  trackTemperature(time_prev);
   trackAltitude(time_prev, curr_alt); 
   
   trackAccelX(time_prev);
@@ -693,13 +763,12 @@ void loop() {
    switch(mode_code){
     case PRE_LAUNCH:
       // Only transmit once every 5s, use some kind of timer.
-      if ((time_prev - pre_launch_last_transmit_time) > 5){
+      if (((time_prev - pre_launch_last_transmit_time) % 5) == 0){
+        data_to_send = data_to_send + "Current Mode: PRE_LAUNCH ";
         data_to_send = data_to_send + "," + curr_alt + "," + accel_y;
         data_to_send = data_to_send + "5 seconds since last PRE_LAUNCH transmit - transmit since start: " + time_prev;
         Serial.println(data_to_send);
-        // FORMAT: TIMESTAMP, MODE, VELOCITY (X,Y,Z), PRESSURE, ALTITUDE, TEMPERATURE
-        //data_to_send = data_to_send + timestamp + "," + status + "," + x_vel + "," + y_vel + "," + z_vel + "," + pressure + "," + altitude + "," + temperature + "\n"; 
-
+       
         // Transmit data
         transmit(data_to_send);
 
@@ -714,9 +783,9 @@ void loop() {
     case ASCENDING:
       // Transmit as fast as possible
       // Package data into a string
-        data_to_send = data_to_send + "," + curr_alt + "," + accel_x + "," + accel_y + "," + accel_z + "," + temperature + "," + pressure;
+        data_to_send = data_to_send + X_AVERAGED + "," + Y_AVERAGED + "," + Z_AVERAGED + "," + TEMP_AVERAGED + "," + PRESSURE_AVERAGED + "," + curr_alt;
         Serial.println(data_to_send);
-      // FORMAT: ALTITUDE, ACCEL (X,Y,Z), TEMPERATURE, PRESSURE
+      // FORMAT: ACCEL (X,Y,Z), TEMPERATURE, PRESSURE, ALTITUDE
       
       // Transmit data
       transmit(data_to_send);
@@ -725,51 +794,54 @@ void loop() {
     case DESCENDING:
       // Transmit as fast as possible
       // Package data into a string
-        data_to_send = data_to_send + "," + curr_alt + "," + accel_x + "," + accel_y + "," + accel_z + "," + temperature + "," + pressure;
+        data_to_send = data_to_send + X_AVERAGED + "," + Y_AVERAGED + "," + Z_AVERAGED + "," + TEMP_AVERAGED + "," + PRESSURE_AVERAGED + "," + curr_alt;
         Serial.println(data_to_send);
-      // FORMAT: ALTITUDE, ACCEL (X,Y,Z), TEMPERATURE, PRESSURE
+      // FORMAT: ACCEL (X,Y,Z), TEMPERATURE, PRESSURE, ALTITUDE
+      
       // Transmit data
       transmit(data_to_send);
       break;
 
-    case LANDED:
-      if ((time_prev - landed_last_transmit_time) > 10000) {
-        // Provide summary e.g. of maximum values
+    case LANDED: 
+      bool summary=false;
+      if (summary==false) {
+        // Provide summary 
         data_to_send = data_to_send + "Summary of results" + "\n";
         data_to_send = data_to_send + "Maximum altitude: " + max_alt + "\n";
-        data_to_send = data_to_send + "Maximum upward acceleration: " + max_accel_y + "\n";
-        data_to_send = data_to_send + "Maximum downward: " + min_accel_y + "\n";
-        data_to_send = data_to_send + "Time at landing: " + time_prev + "\n";
-        HC12.println(data_to_send);
+        data_to_send = data_to_send + "Change in altitude: " + (max_alt-min_alt) + "\n";
+                
+        //Times
+        data_to_send = data_to_send + "Started Pre-Launch at: " + (mode_time[0]/1000) + "s" + "\n";
+        data_to_send = data_to_send + "Started Ascending at: " + (mode_time[1]/1000) + "s" + "\n";
+        data_to_send = data_to_send + "Started Descending at: " + (mode_time[2]/1000) + "s" + "\n";
+        data_to_send = data_to_send + "Time at Landing: " + (mode_time[3]/1000) + "s" + "\n";
+        
+        //Altitude, Pressure & Temperature
+        data_to_send = data_to_send + "Altitude| " + "Max: " + max_alt + ", " + "Min: " + min_alt + ", "  + "Avg: " + avg_alt + "\n";
+        data_to_send = data_to_send + "pressureitude| " + "Max: " + max_pressure + ", " + "Min: " + min_pressure + ", "  + "Avg: " + avg_pressure + "\n";
+        data_to_send = data_to_send + "Temperature| " + "Max: " + max_temp + ", " + "Min: " + min_temp + ", "  + "Avg: " + avg_temp + "\n";
+
+        //Acceleration
+        data_to_send = data_to_send + "X Acceleration| " + "Max: " + max_accel_x + ", " + "Min: " + min_accel_x + ", "  + "Avg: " + avg_accel_x + "\n";
+        data_to_send = data_to_send + "Y Acceleration| " + "Max: " + max_accel_y + ", " + "Min: " + min_accel_y + ", "  + "Avg: " + avg_accel_y + "\n";
+        data_to_send = data_to_send + "Z Acceleration| " + "Max: " + max_accel_z + ", " + "Min: " + min_accel_z + ", "  + "Avg: " + avg_accel_z + "\n";
+
+        //Velocity
+        data_to_send = data_to_send + "X Velocity| " + "Max: " + max_vel_x + ", " + "Min: " + min_vel_x + ", "  + "Avg: " + avg_vel_x + "\n";
+        data_to_send = data_to_send + "Y Velocity| " + "Max: " + max_vel_y + ", " + "Min: " + min_vel_y + ", "  + "Avg: " + avg_vel_y + "\n";
+        data_to_send = data_to_send + "X Velocity| " + "Max: " + max_vel_z + ", " + "Min: " + min_vel_z + ", "  + "Avg: " + avg_vel_z + "\n";
+
+        //Force
+        data_to_send = data_to_send + "X Force| " + "Max: " + max_force_x + ", " + "Min: " + min_force_x + ", "  + "Avg: " + avg_force_x + "\n";
+        data_to_send = data_to_send + "Y Force| " + "Max: " + max_force_y + ", " + "Min: " + min_force_y + ", "  + "Avg: " + avg_force_y + "\n";
+        data_to_send = data_to_send + "Z Force| " + "Max: " + max_force_z + ", " + "Min: " + min_force_z + ", "  + "Avg: " + avg_force_z + "\n";
+        transmit(data_to_send);
+
+        summary = true;
       }
       break;
 
     default:
       break;
   }
-  /* Debug Check
-  String raw_debug = "";
-  raw_debug = raw_debug + time_prev;
-  transmit(raw_debug);
-  */
-
-  /* OLD TRANSMIT CODE - OUTSIDE OF MODES - REMOVE IN FINAL ITERATION
-  if(time_prev!=time_prev) {
-        data_to_send = data_to_send + "Summary of results" + "\n";
-        data_to_send = data_to_send + "Maximum altitude: " + max_alt + "\n";
-        //TODO: Determine orientation for "up"
-        data_to_send = data_to_send + "Maximum upward acceleration: " + max_accel_y + "\n";
-        data_to_send = data_to_send + "Maximum downward: " + min_accel_y + "\n";
-
-        //TODO: Add proper summary
-  }
-  else
-  {
-     data_to_send = data_to_send + X_AVERAGED + "," + Y_AVERAGED + "," + Z_AVERAGED + "," + TEMP_AVERAGED + "," + PRESSURE_AVERAGED + "," + curr_alt;
-    //data_to_send = data_to_send + vel_x + "," + vel_y + "," + vel_z;
-  }
-  */ //REMOVE ^^^^^^^^^^^^^^^^^^^^
-  
-  transmit(data_to_send);
-  delay(100);
 }
