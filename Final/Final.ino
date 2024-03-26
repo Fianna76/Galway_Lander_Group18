@@ -49,10 +49,9 @@ SoftwareSerial HC12(7, 6); // HC-12 TX Pin, HC-12 RX Pin
 
 // Constants for use in code
 #define ROCKET_MASS (0.2) // Mass of rocket/capsule in kilograms
-//International Standard Atmosphere (ISA) values for calculating atmosphere
-const float R = 8.31432; // Universal gas constant in J/(mol·K)
+const float R = 287; // Universal gas constant in J/(kg·K))
 const float T0 = 288.15; // Standard temperature at sea level in Kelvin
-const float P0 = 101325; // Standard pressure at sea level in Pascals
+const float P0 = 989; // Standard pressure at campus ground level in Hectopascals
 
 //===========================================================================
 // Initialising variables and peripherals
@@ -315,7 +314,7 @@ float calcVelocity(char direction_char, float acceleration, unsigned long diff_t
 
 float calcAltitude(float temperature, float pressure){
   //N.B Constants declared at top of file - 
-  int virt_temp=temperature+273;
+  float virt_temp=temperature+273.15;
   float altitude = ((R * virt_temp) / g) * log(P0 / pressure);
   return altitude;
 }
@@ -623,8 +622,6 @@ int min_force_z_time, max_force_z_time, avg_force_z = 0;
   avg_force_z = (max_force_z+min_force_z)/2;
 }
 
-  
-
 //===========================================================================
 
 void transmit(String data_to_send){
@@ -657,7 +654,7 @@ void loop() {
   time_prev = millis() - time_start;
   
   // Calculate Altitude
-  curr_alt = calcAltitude(temperature, pressure);
+  curr_alt = calcAltitude(TEMP_AVERAGED, PRESSURE_AVERAGED);
 
   // Calculate velocity for each axis using calcVelocity.
   vel_x = calcVelocity('x', X_AVERAGED, time_diff);
