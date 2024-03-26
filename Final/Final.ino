@@ -740,6 +740,8 @@ void loop() {
         data_to_send = data_to_send + "Maximum upward acceleration: " + max_accel_y + "\n";
         data_to_send = data_to_send + "Maximum downward: " + min_accel_y + "\n";
         data_to_send = data_to_send + "Time at landing: " + time_prev + "\n";
+        //TODO: Add proper summary
+
         HC12.println(data_to_send);
       }
       break;
@@ -747,28 +749,6 @@ void loop() {
     default:
       break;
   }
-  /* Debug Check
-  String raw_debug = "";
-  raw_debug = raw_debug + time_prev;
-  transmit(raw_debug);
-  */
-
-  /* OLD TRANSMIT CODE - OUTSIDE OF MODES - REMOVE IN FINAL ITERATION
-  if(time_prev!=time_prev) {
-        data_to_send = data_to_send + "Summary of results" + "\n";
-        data_to_send = data_to_send + "Maximum altitude: " + max_alt + "\n";
-        //TODO: Determine orientation for "up"
-        data_to_send = data_to_send + "Maximum upward acceleration: " + max_accel_y + "\n";
-        data_to_send = data_to_send + "Maximum downward: " + min_accel_y + "\n";
-
-        //TODO: Add proper summary
-  }
-  else
-  {
-     data_to_send = data_to_send + X_AVERAGED + "," + Y_AVERAGED + "," + Z_AVERAGED + "," + TEMP_AVERAGED + "," + PRESSURE_AVERAGED + "," + curr_alt;
-    //data_to_send = data_to_send + vel_x + "," + vel_y + "," + vel_z;
-  }
-  */ //REMOVE ^^^^^^^^^^^^^^^^^^^^
   
   transmit(data_to_send);
   delay(100);
