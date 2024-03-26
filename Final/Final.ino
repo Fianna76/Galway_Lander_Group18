@@ -50,6 +50,7 @@ SoftwareSerial HC12(7, 6); // HC-12 TX Pin, HC-12 RX Pin
 // Constants for use in code
 #define ROCKET_MASS (0.2) // Mass of rocket/capsule in kilograms
 #define GROUND_LEVEL (50) //Ground level as detected by sensors
+#define DESCENT_CHECK (15) //The amount of consecutive sensor reads to detect if the rockets descending 
 //N.B SET ABOVE CONSTANTS TO CORRECT VALUES BEFORE LAUNCH
 
 const float R = 287; // Universal gas constant in J/(kg·K))
@@ -157,7 +158,6 @@ void readFromAccelerometer(){
   accel_x = new_x;
   accel_y = new_y;
   accel_z = new_z;
-
 }
 
 //TODO: Actually use or lose this
@@ -289,6 +289,8 @@ float calcVelocity(char direction_char, float acceleration, unsigned long diff_t
   int intcheck=0;
   bool check=false; 
 
+  float adjusted_accel = acceleration-9;
+
   //Convert diff_time to seconds 
   float current_time = static_cast<float>(diff_time) / 1000;
   //This static cast is neccesary, as I was getting persistent issues with the conversion without it
@@ -300,8 +302,10 @@ float calcVelocity(char direction_char, float acceleration, unsigned long diff_t
     prev_x=velocity-prev_x;
     break; 
 
+    /*For y - since the sensor is placed vertically "up" along the y axis, we must account for gravity which would otherwise persistently generate a velocity#
+    even while the sensor remained at rest. The other axis are fine without this as they shouldn't be affected by gravity unless the rocket goes sideways */
     case 'y':
-    velocity = prev_y + acceleration*current_time;
+    velocity = prev_y + adjusted_accel*current_time;
     prev_y=velocity-prev_y;
     break;
 
@@ -333,39 +337,43 @@ float calcForce(float acceleration){
   return force;
 }
 
-int detectMode(int prev_mode){
-  int mode_code; 
+int detectMode(int prev_mode){ 
   //Note - mode changes shouldn't really be a big thing for the live transmission within the final test - but we do have to track the times of each mode change
+  int Falling=0;
 
   if (prev_mode == 0) {
-    mode = PRE_LAUNCH;
-    prev_mode = PRE_LAUNCH;
+    mode = 0;
+    prev_mode = 0;
 
     mode_time[0]=time_prev;
   }
 
   //TODO: Set this to something feasible based off altitude at ground
-  else if(prev_mode == PRE_LAUNCH && curr_alt > GROUND_LEVEL) {
-    mode = ASCENDING;
-    prev_mode = ASCENDING;
+  else if(prev_mode == 0 && curr_alt > GROUND_LEVEL) {
+    
+    mode = 1;
+    prev_mode = 1;
 
     mode_time[1]=time_prev;
   }
 
-  else if (prev_mode == ASCENDING && curr_alt < max_alt) {
-    mode = DESCENDING;
-    prev_mode = DESCENDING;
+  else if (prev_mode == 1 && curr_alt < max_alt) {
+    Falling++;
+    if(Falling>=DESCENT_CHECK) {
+    mode = 2;
+    prev_mode = 2;
+    }
 
     mode_time[2]=time_prev;
   }
 
-  else if (prev_mode == DESCENDING && curr_alt == min_alt) {
-    mode = LANDED;
-    prev_mode = LANDED;
+  else if (prev_mode == 2 && curr_alt == min_alt) {
+    mode = 3;
+    prev_mode = 3;
 
     mode_time[3]=time_prev;
   }
-  return mode_code; 
+  return mode; 
 }
 
 //===========================================================================
@@ -758,16 +766,14 @@ void loop() {
 
   // GENERATE TRANSMISSION STRING
   String data_to_send = "";
-  
-  //Switch statement for different modes goes HERE
+
    switch(mode_code){
-    case PRE_LAUNCH:
+    case 0: //PRE_LAUNCH
       // Only transmit once every 5s, use some kind of timer.
-      if (((time_prev - pre_launch_last_transmit_time) % 5) == 0){
+      if ((time_prev - pre_launch_last_transmit_time) > 5000){
         data_to_send = data_to_send + "Current Mode: PRE_LAUNCH ";
         data_to_send = data_to_send + "," + curr_alt + "," + accel_y;
         data_to_send = data_to_send + "5 seconds since last PRE_LAUNCH transmit - transmit since start: " + time_prev;
-        Serial.println(data_to_send);
        
         // Transmit data
         transmit(data_to_send);
@@ -780,7 +786,7 @@ void loop() {
       }
       break;
       
-    case ASCENDING:
+    case 1: //ASCENDING
       // Transmit as fast as possible
       // Package data into a string
         data_to_send = data_to_send + X_AVERAGED + "," + Y_AVERAGED + "," + Z_AVERAGED + "," + TEMP_AVERAGED + "," + PRESSURE_AVERAGED + "," + curr_alt;
@@ -791,7 +797,7 @@ void loop() {
       transmit(data_to_send);
       break;
       
-    case DESCENDING:
+    case 2: //Descending
       // Transmit as fast as possible
       // Package data into a string
         data_to_send = data_to_send + X_AVERAGED + "," + Y_AVERAGED + "," + Z_AVERAGED + "," + TEMP_AVERAGED + "," + PRESSURE_AVERAGED + "," + curr_alt;
@@ -802,7 +808,7 @@ void loop() {
       transmit(data_to_send);
       break;
 
-    case LANDED: 
+    case 3: //LANDED 
       bool summary=false;
       if (summary==false) {
         // Provide summary 
@@ -818,7 +824,7 @@ void loop() {
         
         //Altitude, Pressure & Temperature
         data_to_send = data_to_send + "Altitude| " + "Max: " + max_alt + ", " + "Min: " + min_alt + ", "  + "Avg: " + avg_alt + "\n";
-        data_to_send = data_to_send + "pressureitude| " + "Max: " + max_pressure + ", " + "Min: " + min_pressure + ", "  + "Avg: " + avg_pressure + "\n";
+        data_to_send = data_to_send + "Pressure| " + "Max: " + max_pressure + ", " + "Min: " + min_pressure + ", "  + "Avg: " + avg_pressure + "\n";
         data_to_send = data_to_send + "Temperature| " + "Max: " + max_temp + ", " + "Min: " + min_temp + ", "  + "Avg: " + avg_temp + "\n";
 
         //Acceleration
@@ -843,5 +849,6 @@ void loop() {
 
     default:
       break;
+      
   }
 }
