@@ -49,9 +49,14 @@ SoftwareSerial HC12(7, 6); // HC-12 TX Pin, HC-12 RX Pin
 
 // Constants for use in code
 #define ROCKET_MASS (0.2) // Mass of rocket/capsule in kilograms
+#define GROUND_LEVEL (50) //Ground level as detected by sensors
+//N.B SET ABOVE CONSTANTS TO CORRECT VALUES BEFORE LAUNCH
+
 const float R = 287; // Universal gas constant in J/(kg·K))
 const float T0 = 288.15; // Standard temperature at sea level in Kelvin
 const float P0 = 989; // Standard pressure at campus ground level in Hectopascals
+
+
 
 //===========================================================================
 // Initialising variables and peripherals
@@ -330,7 +335,6 @@ float calcForce(float acceleration){
 
 int detectMode(int prev_mode){
   int mode_code; 
-
   //Note - mode changes shouldn't really be a big thing for the live transmission within the final test - but we do have to track the times of each mode change
 
   if (prev_mode == 0) {
@@ -340,8 +344,8 @@ int detectMode(int prev_mode){
     mode_time[0]=time_prev;
   }
 
-
-  else if(prev_mode == PRE_LAUNCH && curr_alt > 10) {
+  //TODO: Set this to something feasible based off altitude at ground
+  else if(prev_mode == PRE_LAUNCH && curr_alt > GROUND_LEVEL) {
     mode = ASCENDING;
     prev_mode = ASCENDING;
 
@@ -361,15 +365,14 @@ int detectMode(int prev_mode){
 
     mode_time[3]=time_prev;
   }
-  return mode_code;
-  
+  return mode_code; 
 }
 
 //===========================================================================
 // TRACK CALCULATED READINGS 
 //===========================================================================
 
-void tracktemp(int time_now){
+void trackTemperature(int time_now){
   int min_temp_time, max_temp_time = 0; 
   bool initial_temp = false;
   
@@ -734,7 +737,9 @@ void loop() {
   // Detect Mode i.e. launch, ascending, descending, landed etc.
   int mode_code = detectMode(prev_mode);
 
-  // TRACK MIN, MAX, AVG VALUES for Altitude, Acceleration, Force, and Velocity. 
+  // TRACK MIN, MAX, AVG VALUES
+  trackPressure(time_prev);
+  trackTemperature(time_prev);
   trackAltitude(time_prev, curr_alt); 
   
   trackAccelX(time_prev);
