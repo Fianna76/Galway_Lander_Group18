@@ -693,13 +693,12 @@ void loop() {
    switch(mode_code){
     case PRE_LAUNCH:
       // Only transmit once every 5s, use some kind of timer.
-      if ((time_prev - pre_launch_last_transmit_time) > 5){
+      if (((time_prev - pre_launch_last_transmit_time) % 5) == 0){
+        data_to_send = data_to_send + "Current Mode: PRE_LAUNCH "
         data_to_send = data_to_send + "," + curr_alt + "," + accel_y;
         data_to_send = data_to_send + "5 seconds since last PRE_LAUNCH transmit - transmit since start: " + time_prev;
         Serial.println(data_to_send);
-        // FORMAT: TIMESTAMP, MODE, VELOCITY (X,Y,Z), PRESSURE, ALTITUDE, TEMPERATURE
-        //data_to_send = data_to_send + timestamp + "," + status + "," + x_vel + "," + y_vel + "," + z_vel + "," + pressure + "," + altitude + "," + temperature + "\n"; 
-
+       
         // Transmit data
         transmit(data_to_send);
 
@@ -714,9 +713,9 @@ void loop() {
     case ASCENDING:
       // Transmit as fast as possible
       // Package data into a string
-        data_to_send = data_to_send + "," + curr_alt + "," + accel_x + "," + accel_y + "," + accel_z + "," + temperature + "," + pressure;
+        data_to_send = data_to_send + X_AVERAGED + "," + Y_AVERAGED + "," + Z_AVERAGED + "," + TEMP_AVERAGED + "," + PRESSURE_AVERAGED + "," + curr_alt;
         Serial.println(data_to_send);
-      // FORMAT: ALTITUDE, ACCEL (X,Y,Z), TEMPERATURE, PRESSURE
+      // FORMAT: ACCEL (X,Y,Z), TEMPERATURE, PRESSURE, ALTITUDE
       
       // Transmit data
       transmit(data_to_send);
@@ -725,14 +724,15 @@ void loop() {
     case DESCENDING:
       // Transmit as fast as possible
       // Package data into a string
-        data_to_send = data_to_send + "," + curr_alt + "," + accel_x + "," + accel_y + "," + accel_z + "," + temperature + "," + pressure;
+        data_to_send = data_to_send + X_AVERAGED + "," + Y_AVERAGED + "," + Z_AVERAGED + "," + TEMP_AVERAGED + "," + PRESSURE_AVERAGED + "," + curr_alt;
         Serial.println(data_to_send);
-      // FORMAT: ALTITUDE, ACCEL (X,Y,Z), TEMPERATURE, PRESSURE
+      // FORMAT: ACCEL (X,Y,Z), TEMPERATURE, PRESSURE, ALTITUDE
+      
       // Transmit data
       transmit(data_to_send);
       break;
 
-    case LANDED:
+    case LANDED: //Maybe change the condition here? Set it to just transmit once then break?
       if ((time_prev - landed_last_transmit_time) > 10000) {
         // Provide summary e.g. of maximum values
         data_to_send = data_to_send + "Summary of results" + "\n";
