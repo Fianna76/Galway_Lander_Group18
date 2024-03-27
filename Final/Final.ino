@@ -31,7 +31,7 @@ SoftwareSerial HC12(7, 6); // HC-12 TX Pin, HC-12 RX Pin
 
 // N.B. Every I2C device has a unique address/chip ID
 #define I2CADDR (0x76)
-#define CHIPID (0x60) //0x60 for BME and 0x58 for BMP.
+#define CHIPID (0x58) //0x60 for BME and 0x58 for BMP.
 
 // Mode Codes
 #define PRE_LAUNCH (100)
@@ -48,8 +48,8 @@ SoftwareSerial HC12(7, 6); // HC-12 TX Pin, HC-12 RX Pin
 #define WINDOW_SIZE 5
 
 // Constants for use in code
-#define ROCKET_MASS (0.2) // Mass of rocket/capsule in kilograms
-#define GROUND_LEVEL (50) //Ground level as detected by sensors
+#define ROCKET_MASS (0.3) // Mass of rocket/capsule in kilograms
+#define GROUND_LEVEL (10) //Ground level as detected by sensors
 #define DESCENT_CHECK (15) //The amount of consecutive sensor reads to detect if the rockets descending 
 //N.B SET ABOVE CONSTANTS TO CORRECT VALUES BEFORE LAUNCH
 
@@ -324,8 +324,10 @@ float calcVelocity(char direction_char, float acceleration, unsigned long diff_t
 
 float calcAltitude(float temperature, float pressure){
   //N.B Constants declared at top of file - 
-  float virt_temp=temperature+273.15;
-  float altitude = ((R * virt_temp) / g) * log(P0 / pressure);
+  //TODO: Make this not look shit
+  float internal = (1 / 5.257);
+  float power = pow((P0 / pressure),internal);
+  float altitude = ((power-1) * (temperature + 273.15))/0.0065;
   return altitude;
 }
 
@@ -337,26 +339,33 @@ float calcForce(float acceleration){
   return force;
 }
 
-int detectMode(int prev_mode){ 
+int detectMode(int prev_mode, int time){ 
   //Note - mode changes shouldn't really be a big thing for the live transmission within the final test - but we do have to track the times of each mode change
   int Falling=0;
+  bool initial=false;
 
-  if (prev_mode == 0) {
+  if (initial ==false) {
     mode = 0;
     prev_mode = 0;
 
     mode_time[0]=time_prev;
+    initial=true;
   }
 
   //TODO: Set this to something feasible based off altitude at ground
-  else if(prev_mode == 0 && curr_alt > GROUND_LEVEL) {
+  if(prev_mode == 0 && curr_alt > GROUND_LEVEL) {
     
     mode = 1;
     prev_mode = 1;
 
     mode_time[1]=time_prev;
+    if(time>=6) {
+      mode = 3;
+      prev_mode = 3;
+    }
   }
 
+  /*
   else if (prev_mode == 1 && curr_alt < max_alt) {
     Falling++;
     if(Falling>=DESCENT_CHECK) {
@@ -373,6 +382,7 @@ int detectMode(int prev_mode){
 
     mode_time[3]=time_prev;
   }
+  */
   return mode; 
 }
 
@@ -446,8 +456,12 @@ void loop() {
   force_y = calcForce(Y_AVERAGED);
   force_z = calcForce(Z_AVERAGED);
 
+  int mode_code;
   // Detect Mode i.e. launch, ascending, descending, landed etc.
-  int mode_code = detectMode(prev_mode);
+  //int mode_code = detectMode(prev_mode, time_prev);
+  //if(time_prev>5) {
+    // mode_code = 3;
+  //}
 
   // TRACK MIN, MAX, AVG VALUES
   //Temperature:
@@ -509,7 +523,46 @@ void loop() {
 
   // GENERATE TRANSMISSION STRING
   String data_to_send = "";
+int summary = 1;
+  if(time_prev>180000) {
+    
+    if (summary=1) {
+     // Provide summary 
+        data_to_send = data_to_send + "Summary of results" + "\n";
+        data_to_send = data_to_send + "Maximum altitude: " + max_alt + "\n";
+        data_to_send = data_to_send + "Change in altitude: " + (max_alt-min_alt) + "\n";
+                
+        //Times
+        data_to_send = data_to_send + "Started Pre-Launch at: " + (mode_time[0]/1000) + "s" + "\n";
+        data_to_send = data_to_send + "Started Ascending at: " + (mode_time[1]/1000) + "s" + "\n";
+        data_to_send = data_to_send + "Started Descending at: " + (mode_time[2]/1000) + "s" + "\n";
+        data_to_send = data_to_send + "Time at Landing: " + (mode_time[3]/1000) + "s" + "\n";
+        
+        //Altitude, Pressure & Temperature
+        data_to_send = data_to_send + "Altitude| " + "Max: " + max_alt + ", " + "Min: " + min_alt + ", "  + "Avg: " + avg_alt + "\n";
+        data_to_send = data_to_send + "Pressure| " + "Max: " + max_pressure + ", " + "Min: " + min_pressure + ", "  + "Avg: " + avg_pressure + "\n";
+        data_to_send = data_to_send + "Temperature| " + "Max: " + max_temp + ", " + "Min: " + min_temp + ", "  + "Avg: " + avg_temp + "\n";
 
+        //Acceleration
+        data_to_send = data_to_send + "X Acceleration| " + "Max: " + max_accel_x + ", " + "Min: " + min_accel_x + ", "  + "Avg: " + avg_accel_x + "\n";
+        data_to_send = data_to_send + "Y Acceleration| " + "Max: " + max_accel_y + ", " + "Min: " + min_accel_y + ", "  + "Avg: " + avg_accel_y + "\n";
+        data_to_send = data_to_send + "Z Acceleration| " + "Max: " + max_accel_z + ", " + "Min: " + min_accel_z + ", "  + "Avg: " + avg_accel_z + "\n";
+
+        //Velocity
+        data_to_send = data_to_send + "X Velocity| " + "Max: " + max_vel_x + ", " + "Min: " + min_vel_x + ", "  + "Avg: " + avg_vel_x + "\n";
+        data_to_send = data_to_send + "Y Velocity| " + "Max: " + max_vel_y + ", " + "Min: " + min_vel_y + ", "  + "Avg: " + avg_vel_y + "\n";
+        data_to_send = data_to_send + "X Velocity| " + "Max: " + max_vel_z + ", " + "Min: " + min_vel_z + ", "  + "Avg: " + avg_vel_z + "\n";
+
+        //Force
+        data_to_send = data_to_send + "X Force| " + "Max: " + max_force_x + ", " + "Min: " + min_force_x + ", "  + "Avg: " + avg_force_x + "\n";
+        data_to_send = data_to_send + "Y Force| " + "Max: " + max_force_y + ", " + "Min: " + min_force_y + ", "  + "Avg: " + avg_force_y + "\n";
+        data_to_send = data_to_send + "Z Force| " + "Max: " + max_force_z + ", " + "Min: " + min_force_z + ", "  + "Avg: " + avg_force_z + "\n";
+        summary++;
+    }
+
+  }
+   transmit(data_to_send);
+  /*
    switch(mode_code){
     case 0: //PRE_LAUNCH
       // Only transmit once every 5s, use some kind of timer.
@@ -594,4 +647,5 @@ void loop() {
       break;
       
   }
+  */
 }
